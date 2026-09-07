@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Grange Veterinary Surgery — Live Assistant Widget</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  #gv-widget-root, #gv-widget-root * { box-sizing: border-box; }
+  #gv-widget-root {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 999999;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  /* ---------- Launcher ---------- */
+  #gv-launcher {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #1B2E45;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 20px rgba(27,46,69,0.35);
+    padding: 0;
+    position: relative;
+    transition: transform 0.15s ease;
+  }
+  #gv-launcher:hover { transform: scale(1.04); }
+  #gv-launcher svg { width: 40px; height: 40px; }
+
+  @keyframes gv-bounce {
+    0%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-10px); }
+    50% { transform: translateY(0); }
+    65% { transform: translateY(-4px); }
+    80% { transform: translateY(0); }
+  }
+  #gv-launcher.gv-bounce { animation: gv-bounce 0.9s ease; }
+
+  /* ---------- Teaser bubble ---------- */
+  #gv-teaser {
+    position: absolute;
+    bottom: 76px;
+    right: 0;
+    max-width: 230px;
+    background: #16233a;
+    color: #fff;
+    padding: 12px 30px 12px 14px;
+    border-radius: 14px;
+    font-size: 13.5px;
+    line-height: 1.4;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    cursor: pointer;
+    display: none;
+  }
+  #gv-teaser::after {
+    content: "";
+    position: absolute;
+    bottom: -8px;
+    right: 24px;
+    width: 0; height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 8px solid #16233a;
+  }
+  #gv-teaser-close {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.18);
+    border: none;
+    color: #fff;
+    font-size: 11px;
+    line-height: 18px;
+    text-align: center;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  /* ---------- Card ---------- */
+  #gv-card {
+    display: none;
+    width: 360px;
+    max-width: calc(100vw - 24px);
+    height: 560px;
+    max-height: calc(100vh - 40px);
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.28);
+    overflow: hidden;
+    flex-direction: column;
+    position: absolute;
+    bottom: 0;
+    right: 0;
+  }
+
+  #gv-header {
+    background: #1B2E45;
+    color: #fff;
+    padding: 14px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  #gv-header-avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  #gv-header-avatar svg { width: 24px; height: 24px; }
+  #gv-header-text { flex: 1; min-width: 0; }
+  #gv-header-name { font-size: 14.5px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  #gv-status-dot { width: 8px; height: 8px; border-radius: 50%; background: #8a94a3; flex-shrink: 0; }
+  #gv-status-dot.gv-open { background: #4ad07a; }
+  #gv-header-sub { font-size: 11.5px; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #gv-header-emergency {
+    background: #e14b4b;
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    padding: 7px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+  }
+  #gv-header-close {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0 2px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  /* ---------- Menu view ---------- */
+  #gv-menu {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  #gv-menu-avatar {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: #1B2E45;
+    display: flex; align-items: center; justify-content: center;
+    margin: 4px auto 0;
+  }
+  #gv-menu-avatar svg { width: 38px; height: 38px; }
+  #gv-menu-greeting { text-align: center; font-size: 15px; font-weight: 700; color: #1B2E45; }
+  #gv-menu-status-badge {
+    align-self: center;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: #eef2f6;
+    color: #1B2E45;
+  }
+  #gv-menu-status-badge.gv-open { background: #e6f8ee; color: #1c8a4f; }
+  #gv-menu-sub { text-align: center; font-size: 12.5px; color: #57647a; margin-top: -6px; }
+
+  .gv-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: none;
+    border-radius: 24px;
+    padding: 13px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    width: 100%;
+  }
+  .gv-btn-emergency { background: #e14b4b; color: #fff; }
+  .gv-btn-primary { background: #E8829F; color: #fff; }
+  .gv-btn-secondary { background: #eef2f6; color: #1B2E45; }
+
+  #gv-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 4px;
+  }
+  .gv-chip {
+    background: #eef2f6;
+    color: #1B2E45;
+    border: 1px solid #dbe2ea;
+    border-radius: 16px;
+    padding: 7px 12px;
+    font-size: 12.5px;
+    cursor: pointer;
+  }
+  .gv-chip:hover { background: #e2e8ee; }
+
+  /* ---------- Chat view ---------- */
+  #gv-chat { display: none; flex-direction: column; flex: 1; min-height: 0; }
+  #gv-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: #f7f9fb;
+  }
+  .gv-msg { max-width: 82%; padding: 10px 13px; border-radius: 14px; font-size: 13.5px; line-height: 1.45; }
+  .gv-msg-bot { align-self: flex-start; background: #fff; color: #22303f; border: 1px solid #e6eaf0; border-bottom-left-radius: 4px; }
+  .gv-msg-user { align-self: flex-end; background: #1B2E45; color: #fff; border-bottom-right-radius: 4px; }
+  .gv-msg-links, .gv-msg-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-self: flex-start; max-width: 82%; }
+  .gv-msg-links a.gv-link-chip {
+    background: #1B2E45; color: #fff; text-decoration: none;
+    border-radius: 14px; padding: 6px 11px; font-size: 12px; font-weight: 600;
+  }
+  .gv-msg-suggestions button.gv-suggest-chip {
+    background: #fff; color: #1B2E45; border: 1px solid #dbe2ea;
+    border-radius: 14px; padding: 6px 11px; font-size: 12px; cursor: pointer;
+  }
+  #gv-typing { align-self: flex-start; background: #fff; border: 1px solid #e6eaf0; border-radius: 14px; padding: 10px 14px; display: none; }
+  #gv-typing span {
+    display: inline-block; width: 6px; height: 6px; margin: 0 2px; border-radius: 50%;
+    background: #9aa5b3; animation: gv-blink 1.1s infinite ease-in-out both;
+  }
+  #gv-typing span:nth-child(2) { animation-delay: 0.15s; }
+  #gv-typing span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes gv-blink { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+
+  #gv-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 10px;
+    border-top: 1px solid #e6eaf0;
+    background: #fff;
+    flex-shrink: 0;
+  }
+  #gv-input {
+    flex: 1;
+    border: 1px solid #dbe2ea;
+    border-radius: 20px;
+    padding: 10px 14px;
+    font-size: 13.5px;
+    outline: none;
+  }
+  #gv-input:focus { border-color: #E8829F; }
+  #gv-send {
+    background: #E8829F;
+    border: none;
+    color: #fff;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #gv-back-row { padding: 8px 12px 0; }
+  #gv-back {
+    background: none; border: none; color: #57647a; font-size: 12.5px; cursor: pointer; padding: 4px 0;
+  }
+
+  @media (max-width: 420px) {
+    #gv-widget-root { right: 12px; bottom: 12px; }
+    #gv-card { width: calc(100vw - 24px); height: calc(100vh - 90px); }
+    #gv-teaser { max-width: 190px; font-size: 12.5px; }
+    #gv-header-sub { display: none; }
+    #gv-header-emergency { padding: 6px 8px; font-size: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="gv-widget-root">
+
+  <div id="gv-teaser">
+    <button id="gv-teaser-close" aria-label="Dismiss">✕</button>
+    <span id="gv-teaser-text">I'm Grange Vet Surgery's assistant, here to help 24/7.</span>
+  </div>
+
+  <button id="gv-launcher" aria-label="Open chat">
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="32" cy="42" rx="15" ry="12" fill="#ffffff"/>
+      <ellipse cx="14" cy="26" rx="6.5" ry="8.5" fill="#ffffff" transform="rotate(-18 14 26)"/>
+      <ellipse cx="27" cy="16" rx="6.5" ry="8.5" fill="#ffffff" transform="rotate(-6 27 16)"/>
+      <ellipse cx="41" cy="16" rx="6.5" ry="8.5" fill="#ffffff" transform="rotate(6 41 16)"/>
+      <ellipse cx="52" cy="27" rx="6" ry="8" fill="#ffffff" transform="rotate(20 52 27)"/>
+    </svg>
+  </button>
+
+  <div id="gv-card">
+    <div id="gv-header">
+      <div id="gv-header-avatar">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="32" cy="42" rx="15" ry="12" fill="#1B2E45"/>
+          <ellipse cx="14" cy="26" rx="6.5" ry="8.5" fill="#1B2E45" transform="rotate(-18 14 26)"/>
+          <ellipse cx="27" cy="16" rx="6.5" ry="8.5" fill="#1B2E45" transform="rotate(-6 27 16)"/>
+          <ellipse cx="41" cy="16" rx="6.5" ry="8.5" fill="#1B2E45" transform="rotate(6 41 16)"/>
+          <ellipse cx="52" cy="27" rx="6" ry="8" fill="#1B2E45" transform="rotate(20 52 27)"/>
+        </svg>
+      </div>
+      <div id="gv-header-text">
+        <div id="gv-header-name"><span id="gv-status-dot"></span>Grange Vet Surgery</div>
+        <div id="gv-header-sub">Loading…</div>
+      </div>
+      <a id="gv-header-emergency" href="#">📞 Emergency</a>
+      <button id="gv-header-close" aria-label="Close chat">✕</button>
+    </div>
+
+    <div id="gv-menu">
+      <div id="gv-menu-avatar">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="32" cy="42" rx="15" ry="12" fill="#ffffff"/>
+          <ellipse cx="14" cy="26" rx="6.5" ry="8.5" fill="#ffffff" transform="rotate(-18 14 26)"/>
+          <ellipse cx="27" cy="16" rx="6.5" ry="8.5" fill="#ffffff" transform="rotate(-6 27 16)"/>
+          <ellipse cx="41" cy="16" rx="6.5" ry="8.5" fill="#ffffff" transform="rotate(6 41 16)"/>
+          <ellipse cx="52" cy="27" rx="6" ry="8" fill="#ffffff" transform="rotate(20 52 27)"/>
+        </svg>
+      </div>
+      <div id="gv-menu-greeting">Hi! I'm Grange Vet Surgery's assistant — how can I help?</div>
+      <div id="gv-menu-status-badge">Checking hours…</div>
+      <div id="gv-menu-sub" id="gv-menu-sub-text"></div>
+
+      <a id="gv-menu-emergency" class="gv-btn gv-btn-emergency" href="#">📞 Emergency? Call now</a>
+      <button id="gv-start-chat" class="gv-btn gv-btn-primary">💬 Start a new chat</button>
+      <a id="gv-book-online" class="gv-btn gv-btn-secondary" href="#">📅 Book Online (Call Us)</a>
+
+      <div id="gv-chips"></div>
+    </div>
+
+    <div id="gv-chat">
+      <div id="gv-back-row"><button id="gv-back">← Back to menu</button></div>
+      <div id="gv-messages"></div>
+      <div id="gv-input-row">
+        <input id="gv-input" type="text" placeholder="Type your message…" autocomplete="off">
+        <button id="gv-send" aria-label="Send">➤</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ============================================================
+  // CONFIG — fill in real values as they become available.
+  // Each TODO field auto-upgrades the relevant answer once filled.
+  // ============================================================
+  const _CONFIG = {
+    clinicName: "Grange Veterinary Surgery",
+    assistantName: "Grange Vet Surgery's Assistant",
+    phone: "07 3856 2333",
+    phoneAlt: "07 3856 4882",
+    afterHoursPhone: "0419 787 922",
+    afterHoursPhoneAlt: "3359 0777",
+    email: "grangevet@gmail.com",
+    address: "12 Days Road, Grange, QLD 4051",
+    clinicTimeZone: "Australia/Brisbane",
+    // 24h format, per weekday index (0=Sun ... 6=Sat). null = closed.
+    weeklyHours: {
+      0: null,
+      1: { open: 8, close: 17 },
+      2: { open: 8, close: 17 },
+      3: { open: 8, close: 17 },
+      4: { open: 8, close: 17 },
+      5: { open: 8, close: 17 },
+      6: { open: 8, close: 12 }
+    },
+    // TODO(Glenda): confirmed public-holiday hours — leave null until published.
+    publicHolidayHours: null,
+    // TODO(Glenda): real online booking URL once Grange Vet sets one up.
+    bookingUrl: null,
+    // TODO(Glenda): confirm accepted payment methods (cash/card/Afterpay/Zip/VetPay etc).
+    paymentMethods: null,
+    // TODO(Glenda): confirm whether Grange Vet runs its own boarding facility + rates.
+    boardingOffered: null,
+    // TODO(Glenda): confirmed service pricing once Grange Vet supplies a price list.
+    pricingPublished: null
+  };
+
+  function mapsUrl(address) {
+    return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(address);
+  }
+  function telHref(num) { return "tel:" + num.replace(/[^+\d]/g, ""); }
+
+  // ============================================================
+  // Dynamic open/closed status (clinic's own timezone)
+  // ============================================================
+  function getClinicNow() {
+    const fmt = new Intl.DateTimeFormat("en-US", {
+      timeZone: _CONFIG.clinicTimeZone,
+      weekday: "short", hour: "numeric", minute: "numeric", hour12: false
+    });
+    const parts = fmt.formatToParts(new Date());
+    const map = {};
+    parts.forEach(p => map[p.type] = p.value);
+    const weekdayNames = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 };
+    let hour = parseInt(map.hour, 10);
+    if (hour === 24) hour = 0;
+    return {
+      weekday: weekdayNames[map.weekday],
+      hour: hour,
+      minute: parseInt(map.minute, 10)
+    };
+  }
+
+  function getStatus() {
+    const now = getClinicNow();
+    const todayHours = _CONFIG.weeklyHours[now.weekday];
+    const nowMins = now.hour * 60 + now.minute;
+    let open = false;
+    if (todayHours) {
+      const openMins = todayHours.open * 60;
+      const closeMins = todayHours.close * 60;
+      open = nowMins >= openMins && nowMins < closeMins;
+    }
+    const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    let subLine;
+    if (open) {
+      subLine = "Open now · closes " + formatHour(todayHours.close);
+    } else {
+      // find next open day
+      let nextDay = now.weekday, hoursAhead = 0, found = null;
+      for (let i = 0; i < 8; i++) {
+        const d = (now.weekday + i) % 7;
+        const h = _CONFIG.weeklyHours[d];
+        if (h) {
+          if (i === 0 && nowMins < h.open * 60) { found = { day: d, sameDay: true, h }; break; }
+          if (i > 0) { found = { day: d, sameDay: false, h }; break; }
+        }
+      }
+      if (found) {
+        subLine = "Currently closed · " + (found.sameDay ? "opens today " : "opens " + dayNames[found.day] + " ") + formatHour(found.h.open);
+      } else {
+        subLine = "Currently closed";
+      }
+    }
+    return {
+      open: open,
+      subLine: subLine,
+      emergencyLabel: open ? "📞 Emergency? Call now" : "📞 After-hours emergency",
+      emergencyNumber: open ? _CONFIG.phone : _CONFIG.afterHoursPhone
+    };
+  }
+
+  function formatHour(h) {
+    const period = h >= 12 ? "PM" : "AM";
+    let hr = h % 12; if (hr === 0) hr = 12;
+    return hr + (period === "AM" && h < 10 ? ":00" : ":00") + period;
+  }
+
+  // ============================================================
+  // Knowledge base / intent matching
+  // ============================================================
+  const EMERGENCY_TRIGGERS = [
+    "emergency","bleeding","vomiting","seizure","seizing","collapse","collapsed",
+    "not breathing","can't breathe","cant breathe","difficulty breathing","choking",
+    "hit by a car","hit by car","poisoned","poison","ate my","ate something","swallowed something",
+    "in pain","won't wake up","wont wake up","unconscious","dying","urgent","accident",
+    "chocolate","grapes","raisin","onion","garlic","xylitol","rat bait","rodenticide",
+    "antifreeze","lily","lilies"
+  ];
+
+  function isEmergency(msg) {
+    return EMERGENCY_TRIGGERS.some(t => msg.includes(t));
+  }
+
+  const KB = [
+    {
+      id: "contact",
+      triggers: ["contact","phone number","your number","email address","how do i reach you","get in touch","email"],
+      answer: () => `You can reach us on ${_CONFIG.phone} (or ${_CONFIG.phoneAlt}), by email at ${_CONFIG.email}, or visit us at ${_CONFIG.address}.`,
+      links: () => [{ label: "Get Directions", href: mapsUrl(_CONFIG.address) }]
+    },
+    {
+      id: "hours",
+      triggers: ["hours","open","opening times","what time","when are you open","close","closing time","weekend"],
+      answer: () => {
+        const s = getStatus();
+        return `Our hours are Monday–Friday 8:00 AM–5:00 PM, Saturday 8:00 AM–12:00 PM, and we're closed Sundays. Right now we're ${s.open ? "open" : "closed"} — ${s.subLine.toLowerCase()}.` +
+          (_CONFIG.publicHolidayHours ? ` Public holidays: ${_CONFIG.publicHolidayHours}.` : ` We haven't published public holiday hours yet — please call ${_CONFIG.phone} to confirm.`);
+      },
+      suggestions: ["How do I book an appointment?", "Where are you located?"]
+    },
+    {
+      id: "location",
+      triggers: ["location","address","where are you","directions","find you","parking"],
+      answer: () => `We're at ${_CONFIG.address}, central to Brisbane's northside — serving Wilston, Windsor, Newmarket, Alderley and Stafford. Parking details aren't listed on our site, so please call ${_CONFIG.phone} to check on the day.`,
+      links: () => [{ label: "Get Directions", href: mapsUrl(_CONFIG.address) }]
+    },
+    {
+      id: "payment",
+      triggers: ["payment","pay","credit card","afterpay","zip pay","vetpay","how much can i pay","payment plan","payment methods"],
+      answer: () => _CONFIG.paymentMethods
+        ? `We accept ${_CONFIG.paymentMethods}.`
+        : `We haven't published our accepted payment methods yet — please call us on ${_CONFIG.phone} to confirm what works best for you.`
+    },
+    {
+      id: "insurance",
+      triggers: ["insurance","pet insurance","claim","insured","policy"],
+      answer: () => `Yes — we accept claims from all pet insurers and can give general advice on choosing a policy, including excess, coverage limits and pre-existing condition exclusions. Call us on ${_CONFIG.phone} for details on your specific policy.`
+    },
+    {
+      id: "doctors",
+      triggers: ["doctors","vets","veterinarian","who are the doctors","how many vets","meet the team","dr paul","dr leanne","dr tina"],
+      answer: () => `We have three vets: Dr Paul MacGinley (our founder — dentistry, surgery and feline medicine), Dr Leanne Litzow (reproduction medicine), and Dr Tina Miller (endocrine disorders and soft tissue surgery). Between us we've been caring for Brisbane northside pets since 1987.`
+    },
+    {
+      id: "nurses",
+      triggers: ["nurses","nursing team","support staff","practice manager","staff"],
+      answer: () => `Our nursing team includes Kathy Edwards (Practice Manager, 25+ years' experience), Lisa Swadling and Zoe Radford — all Certified Veterinary Nurses.`
+    },
+    {
+      id: "services",
+      triggers: ["services","what do you offer","what do you do","treatments"],
+      answer: () => `We offer health checks, vaccinations, flea/tick/worm control, microchipping, dentistry, digital x-ray, in-house pathology, desexing, orthopaedic/soft tissue/ophthalmic/dental surgery, grooming, nail clipping, behavioural and nutritional advice, and house calls.`,
+      suggestions: ["Do you do microchipping?", "Do you offer boarding?"]
+    },
+    {
+      id: "microchipping",
+      triggers: ["microchip","microchipping","chip my pet"],
+      answer: () => `Yes — we're an AVA-accredited microchip centre and register chips with Global Micro within 24 hours. It can usually be done during a normal consult, so just mention it when you book.`
+    },
+    {
+      id: "pricing",
+      triggers: ["how much","cost","price","pricing","fee","cat consult","dog consult","cat checkup","dog checkup","how much for a"],
+      answer: () => _CONFIG.pricingPublished
+        ? _CONFIG.pricingPublished
+        : `Our pricing isn't published online — please call us on ${_CONFIG.phone} and our team can give you a quote for your pet.`
+    },
+    {
+      id: "boarding",
+      triggers: ["boarding","board my dog","board my cat","kennel","cattery"],
+      answer: () => _CONFIG.boardingOffered
+        ? _CONFIG.boardingOffered
+        : `We're not able to confirm current boarding availability from our website — please call us on ${_CONFIG.phone} and we'll let you know what's available.`
+    },
+    {
+      id: "desexing_prep",
+      triggers: ["desex","desexing","spay","neuter","castrate","fasting for surgery","surgery prep"],
+      answer: () => `Desexing is our most common surgery — most pets go home the same evening. Beforehand: a normal evening meal the night before is fine (just don't leave food out overnight), and water is okay until 8:00 AM on the day of surgery. We recommend desexing between 4–6 months old, though it's never too late.`
+    },
+    {
+      id: "radiography_prep",
+      triggers: ["x-ray","xray","radiograph","radiography"],
+      answer: () => `We offer digital x-ray on-site. Please bring your pet in unfed on the morning of admission, since sedation or anaesthesia is usually needed for a clear, diagnostic-quality image.`
+    },
+    {
+      id: "referral",
+      triggers: ["referral","refer","specialist","referred out","specialist centre"],
+      answer: () => `If your pet needs specialised care, we refer out to registered veterinary specialists and stay closely involved in their treatment. Specialists set their own fees separately from us, so it's worth asking about cost when you call to book with them.`
+    },
+    {
+      id: "booking",
+      triggers: ["book","booking","appointment","schedule a visit","make an appointment","walk in","walk-in"],
+      answer: () => `Please call us on ${_CONFIG.phone} (or ${_CONFIG.phoneAlt}) to book an appointment — we don't have online booking yet, but you can pre-register your pet's details on our website so everything's ready when you visit.`,
+      links: () => _CONFIG.bookingUrl ? [{ label: "Book Online", href: _CONFIG.bookingUrl }] : [{ label: "Call to Book", href: telHref(_CONFIG.phone) }]
+    },
+    {
+      id: "newclient",
+      triggers: ["first visit","new client","new patient","what should i bring","new pet"],
+      answer: () => `Welcome! Please bring any previous vaccination or medical records, and it helps to pre-register your pet's and your own details on our website beforehand so everything's ready when you arrive.`
+    },
+    {
+      id: "vaccination",
+      triggers: ["vaccination","vaccine","puppy shots","kitten shots","booster"],
+      answer: () => `Puppies and kittens need a short vaccination series while their maternal immunity fades, and adult pets need an annual health check plus booster as required. Give us a call on ${_CONFIG.phone} and we'll work out the right schedule for your pet.`
+    },
+    {
+      id: "dentistry",
+      triggers: ["dental","dentistry","teeth cleaning","bad breath","tartar"],
+      answer: () => `We offer professional dental cleaning under general anaesthesia, with a physical exam and pre-anaesthetic blood/urine tests where needed. Watch for tartar, inflamed gums, bad breath or appetite changes — those are good reasons to book a dental check.`
+    },
+    {
+      id: "diagnostics",
+      triggers: ["blood test","blood work","lab test","laboratory","pathology","urinalysis","biopsy"],
+      answer: () => `Yes — we run an in-house lab for blood chemistry, complete blood counts, clotting times, urinalysis, faecal tests and biopsy examination, with same-day results for most in-house tests. We also partner with QML and IDEXX for more advanced testing.`
+    },
+    {
+      id: "differentiator",
+      triggers: ["why choose","what makes you different","how long have you been","how long established","family owned"],
+      answer: () => `We're a family-owned practice, still run by our founding vets since 1987 — nearly 40 years caring for Brisbane northside pets. We also run our own in-house lab for same-day results, partnered with QML and IDEXX for advanced testing.`
+    },
+    {
+      id: "cancellation",
+      triggers: ["cancel","reschedule","change my appointment"],
+      answer: () => `We haven't published a formal cancellation policy — please call us on ${_CONFIG.phone} as soon as you can if you need to cancel or reschedule.`
+    },
+    {
+      id: "symptom",
+      triggers: [
+        "fever","temperature","limping","lame","itchy","itching","rash","not eating",
+        "off his food","off her food","off food","diarrhea","diarrhoea","lethargic","lethargy",
+        "coughing","cough","sneezing","discharge","swelling","lump","not himself","not herself",
+        "unwell","not well"
+      ],
+      answer: () => `I'm not able to diagnose symptoms over chat, but that's worth a vet's look. Please call us on ${_CONFIG.phone} to book a check-up. If things get worse quickly — trouble breathing, collapse, or severe pain — please treat it as an emergency and call us right away.`
+    },
+    {
+      id: "fallback",
+      triggers: [],
+      answer: () => `I'm not sure about that one — please call us on ${_CONFIG.phone} and our team can help directly.`,
+      suggestions: ["Hours", "Location", "How do I book?"]
+    }
+  ];
+
+  function matchMessage(rawMsg) {
+    const msg = rawMsg.toLowerCase().trim();
+
+    if (isEmergency(msg)) {
+      const s = getStatus();
+      return {
+        id: "emergency",
+        text: `This sounds like it could be an emergency. Please call us right away on ${s.emergencyNumber} — don't wait for a chat reply. ${s.open ? "We're open now and ready to help." : "This is our after-hours emergency line."}`,
+        links: [{ label: "Call " + s.emergencyNumber, href: telHref(s.emergencyNumber) }]
+      };
+    }
+
+    let best = null, bestScore = 0;
+    for (const entry of KB) {
+      if (entry.id === "fallback") continue;
+      for (const trig of entry.triggers) {
+        if (msg.includes(trig)) {
+          const score = trig.length;
+          if (score > bestScore) { bestScore = score; best = entry; }
+        }
+      }
+    }
+    if (!best) best = KB.find(k => k.id === "fallback");
+
+    return {
+      id: best.id,
+      text: best.answer(),
+      links: best.links ? best.links() : null,
+      suggestions: best.suggestions || null
+    };
+  }
+
+  // ============================================================
+  // DOM references
+  // ============================================================
+  const root = document.getElementById("gv-widget-root");
+  const launcher = document.getElementById("gv-launcher");
+  const teaser = document.getElementById("gv-teaser");
+  const teaserClose = document.getElementById("gv-teaser-close");
+  const card = document.getElementById("gv-card");
+  const headerClose = document.getElementById("gv-header-close");
+  const headerSub = document.getElementById("gv-header-sub");
+  const statusDot = document.getElementById("gv-status-dot");
+  const headerEmergency = document.getElementById("gv-header-emergency");
+  const menu = document.getElementById("gv-menu");
+  const menuStatusBadge = document.getElementById("gv-menu-status-badge");
+  const menuSub = document.getElementById("gv-menu-sub-text") || document.getElementById("gv-menu-sub");
+  const menuEmergency = document.getElementById("gv-menu-emergency");
+  const startChatBtn = document.getElementById("gv-start-chat");
+  const bookOnlineBtn = document.getElementById("gv-book-online");
+  const chips = document.getElementById("gv-chips");
+  const chatView = document.getElementById("gv-chat");
+  const backBtn = document.getElementById("gv-back");
+  const messagesEl = document.getElementById("gv-messages");
+  const inputEl = document.getElementById("gv-input");
+  const sendBtn = document.getElementById("gv-send");
+
+  let onboardingStage = "idle"; // idle -> name -> petname -> condition -> done
+  let ownerName = "", petName = "";
+  let cardOpen = false;
+  let bounceInterval = null;
+
+  // ---------- Book Online honesty ----------
+  function refreshBookingButton() {
+    if (_CONFIG.bookingUrl) {
+      bookOnlineBtn.textContent = "📅 Book Online";
+      bookOnlineBtn.href = _CONFIG.bookingUrl;
+      bookOnlineBtn.target = "_blank";
+      bookOnlineBtn.rel = "noopener noreferrer";
+    } else {
+      bookOnlineBtn.textContent = "📅 Book Online (Call Us)";
+      bookOnlineBtn.href = telHref(_CONFIG.phone);
+      bookOnlineBtn.removeAttribute("target");
+    }
+  }
+
+  // ---------- Status refresh ----------
+  function refreshStatus() {
+    const s = getStatus();
+    statusDot.className = s.open ? "gv-open" : "";
+    headerSub.textContent = s.subLine;
+    menuStatusBadge.textContent = s.open ? "🟢 Open now" : "⚪ Closed";
+    menuStatusBadge.className = s.open ? "gv-open" : "";
+    if (menuSub) {
+      menuSub.textContent = s.open
+        ? "We usually reply quickly during business hours."
+        : "We're closed right now — for anything urgent, use the emergency button below.";
+    }
+    headerEmergency.textContent = s.open ? "📞 Emergency" : "📞 After-hours";
+    headerEmergency.href = telHref(s.emergencyNumber);
+    menuEmergency.textContent = s.emergencyLabel;
+    menuEmergency.href = telHref(s.emergencyNumber);
+    repositionTeaser();
+  }
+
+  // ---------- Teaser ----------
+  function repositionTeaser() {
+    if (cardOpen) {
+      teaser.style.bottom = (card.offsetHeight + 12 + 76) + "px";
+    } else {
+      teaser.style.bottom = "76px";
+    }
+  }
+
+  let teaserDismissed = false;
+  setTimeout(() => {
+    if (!teaserDismissed) {
+      teaser.style.display = "block";
+      repositionTeaser();
+    }
+  }, 1800);
+
+  teaserClose.addEventListener("click", (e) => {
+    e.stopPropagation();
+    teaserDismissed = true;
+    teaser.style.display = "none";
+  });
+  teaser.addEventListener("click", () => openCard());
+
+  // ---------- Idle bounce ----------
+  function startBounce() {
+    stopBounce();
+    bounceInterval = setInterval(() => {
+      if (!cardOpen) {
+        launcher.classList.remove("gv-bounce");
+        void launcher.offsetWidth; // restart animation
+        launcher.classList.add("gv-bounce");
+      }
+    }, 8000);
+  }
+  function stopBounce() {
+    if (bounceInterval) clearInterval(bounceInterval);
+    bounceInterval = null;
+  }
+
+  // ---------- Open / close card ----------
+  function openCard() {
+    cardOpen = true;
+    card.style.display = "flex";
+    launcher.style.display = "none";
+    repositionTeaser();
+  }
+  function closeCard() {
+    cardOpen = false;
+    card.style.display = "none";
+    launcher.style.display = "flex";
+    repositionTeaser();
+  }
+  launcher.addEventListener("click", openCard);
+  headerClose.addEventListener("click", closeCard);
+
+  function showMenu() {
+    menu.style.display = "flex";
+    chatView.style.display = "none";
+  }
+  function showChat() {
+    menu.style.display = "none";
+    chatView.style.display = "flex";
+  }
+  backBtn.addEventListener("click", showMenu);
+
+  // ---------- Quick-intent chips ----------
+  const QUICK_INTENTS = [
+    { label: "🕒 Hours", question: "What are your opening hours?" },
+    { label: "💰 Pricing", question: "How much does a consult cost?" },
+    { label: "📍 Location", question: "Where are you located?" },
+    { label: "📅 Booking", question: "How do I book an appointment?" }
+  ];
+  QUICK_INTENTS.forEach(qi => {
+    const btn = document.createElement("button");
+    btn.className = "gv-chip";
+    btn.textContent = qi.label;
+    btn.addEventListener("click", () => {
+      onboardingStage = "done";
+      messagesEl.innerHTML = "";
+      showChat();
+      addUserMessage(qi.question);
+      respondTo(qi.question);
+    });
+    chips.appendChild(btn);
+  });
+
+  // ---------- Start new chat (mandatory intake) ----------
+  startChatBtn.addEventListener("click", () => {
+    onboardingStage = "name";
+    ownerName = ""; petName = "";
+    messagesEl.innerHTML = "";
+    showChat();
+    addBotMessage(`Hi! I'm ${_CONFIG.assistantName}. Before we dive in, what's your name?`);
+  });
+
+  // ---------- Message rendering ----------
+  function addUserMessage(text) {
+    const div = document.createElement("div");
+    div.className = "gv-msg gv-msg-user";
+    div.textContent = text;
+    messagesEl.appendChild(div);
+    scrollToBottom();
+  }
+
+  function addBotMessage(text, links, suggestions) {
+    const div = document.createElement("div");
+    div.className = "gv-msg gv-msg-bot";
+    div.textContent = text;
+    messagesEl.appendChild(div);
+
+    if (links && links.length) {
+      const wrap = document.createElement("div");
+      wrap.className = "gv-msg-links";
+      links.forEach(l => {
+        const a = document.createElement("a");
+        a.className = "gv-link-chip";
+        a.href = l.href;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = l.label;
+        wrap.appendChild(a);
+      });
+      messagesEl.appendChild(wrap);
+    }
+    if (suggestions && suggestions.length) {
+      const wrap = document.createElement("div");
+      wrap.className = "gv-msg-suggestions";
+      suggestions.forEach(s => {
+        const b = document.createElement("button");
+        b.className = "gv-suggest-chip";
+        b.textContent = s;
+        b.addEventListener("click", () => {
+          addUserMessage(s);
+          respondTo(s);
+        });
+        wrap.appendChild(b);
+      });
+      messagesEl.appendChild(wrap);
+    }
+    scrollToBottom();
+  }
+
+  function showTyping() {
+    const div = document.createElement("div");
+    div.id = "gv-typing-active";
+    div.className = "gv-msg gv-msg-bot";
+    div.innerHTML = '<span style="display:inline-block;width:6px;height:6px;margin:0 2px;border-radius:50%;background:#9aa5b3;animation:gv-blink 1.1s infinite ease-in-out both;"></span>' +
+      '<span style="display:inline-block;width:6px;height:6px;margin:0 2px;border-radius:50%;background:#9aa5b3;animation:gv-blink 1.1s infinite ease-in-out both;animation-delay:0.15s;"></span>' +
+      '<span style="display:inline-block;width:6px;height:6px;margin:0 2px;border-radius:50%;background:#9aa5b3;animation:gv-blink 1.1s infinite ease-in-out both;animation-delay:0.3s;"></span>';
+    messagesEl.appendChild(div);
+    scrollToBottom();
+    return div;
+  }
+
+  function scrollToBottom() {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function respondTo(userText, prefix) {
+    const typingEl = showTyping();
+    setTimeout(() => {
+      typingEl.remove();
+      const result = matchMessage(userText);
+      addBotMessage((prefix ? prefix + " " : "") + result.text, result.links, result.suggestions);
+    }, 500);
+  }
+
+  // ---------- Input handling (with intake state machine) ----------
+  function handleUserInput(text) {
+    if (!text.trim()) return;
+    addUserMessage(text);
+
+    if (onboardingStage === "name") {
+      ownerName = text.trim();
+      onboardingStage = "petname";
+      const typingEl = showTyping();
+      setTimeout(() => {
+        typingEl.remove();
+        addBotMessage(`Lovely to meet you, ${ownerName}! What's your pet's name?`);
+      }, 500);
+      return;
+    }
+    if (onboardingStage === "petname") {
+      petName = text.trim();
+      onboardingStage = "condition";
+      const typingEl = showTyping();
+      setTimeout(() => {
+        typingEl.remove();
+        addBotMessage(`Great — and what's going on with ${petName} today? You can describe what's happening, or just ask me about booking, hours, services and more.`);
+      }, 500);
+      return;
+    }
+    if (onboardingStage === "condition") {
+      onboardingStage = "done";
+      respondTo(text, `Thanks, ${ownerName} — noted for ${petName}.`);
+      return;
+    }
+    // onboardingStage === "done" (or chip-initiated) — normal free-form matching
+    respondTo(text);
+  }
+
+  sendBtn.addEventListener("click", () => {
+    const val = inputEl.value;
+    inputEl.value = "";
+    handleUserInput(val);
+  });
+  inputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      const val = inputEl.value;
+      inputEl.value = "";
+      handleUserInput(val);
+    }
+  });
+
+  // ---------- Init ----------
+  refreshBookingButton();
+  refreshStatus();
+  setInterval(refreshStatus, 60000);
+  startBounce();
+  showMenu();
+
+  // ============================================================
+  // Scripted-transcript test harness (QA only — opt-in via ?grangevettest=1)
+  // ============================================================
+  window.GRANGEVET_TEST = {
+    runAll: function() {
+      const cases = [
+        { name: "species pricing", input: "how much for a cat consult", expectIntentId: "pricing" },
+        { name: "weekend hours", input: "are you open saturday", expectIntentId: "hours", expectContains: "Saturday" },
+        { name: "named-toxin emergency", input: "my dog ate chocolate", expectIntentId: "emergency", expectContains: "call" },
+        { name: "multi-symptom emergency combo", input: "vomiting and won't wake up", expectIntentId: "emergency" },
+        { name: "non-emergency symptom", input: "my dog has a fever", expectIntentId: "symptom", expectCalmOpening: true },
+        { name: "bare contact phrasing", input: "contact number", expectIntentId: "contact", expectContains: _CONFIG.phone },
+        { name: "emergency false-positive guard", input: "do you do blood tests?", expectIntentId: "diagnostics", expectNotContains: "won't wake" },
+        { name: "booking", input: "how do I book an appointment", expectIntentId: "booking" },
+        { name: "not-offered service (boarding)", input: "do you offer boarding for my dog", expectIntentId: "boarding" }
+      ];
+      let pass = 0, fail = 0;
+      cases.forEach(c => {
+        const result = matchMessage(c.input);
+        let ok = true;
+        const reasons = [];
+        if (c.expectIntentId && result.id !== c.expectIntentId) { ok = false; reasons.push(`expected intent "${c.expectIntentId}" got "${result.id}"`); }
+        if (c.expectContains && !result.text.includes(c.expectContains)) { ok = false; reasons.push(`missing "${c.expectContains}"`); }
+        if (c.expectNotContains && result.text.includes(c.expectNotContains)) { ok = false; reasons.push(`should not contain "${c.expectNotContains}"`); }
+        if (c.expectCalmOpening && /^(please call|call us right away|this sounds like an emergency)/i.test(result.text)) { ok = false; reasons.push("should open calmly, not with urgent emergency framing"); }
+        if (ok) { pass++; console.log(`PASS: ${c.name}`); }
+        else { fail++; console.log(`FAIL: ${c.name} — ${reasons.join("; ")} (got: "${result.text}")`); }
+      });
+      const statusCheck = getStatus();
+      const statusOk = typeof statusCheck.open === "boolean" && !!statusCheck.emergencyLabel && !!statusCheck.emergencyNumber;
+      console.log(statusOk ? "PASS: status function well-formed" : "FAIL: status function malformed");
+      if (statusOk) pass++; else fail++;
+      console.log(`\n${pass} passed, ${fail} failed (of ${pass + fail})`);
+      return { pass, fail, total: pass + fail };
+    }
+  };
+
+  if (window.location.search.indexOf("grangevettest=1") !== -1) {
+    setTimeout(() => window.GRANGEVET_TEST.runAll(), 300);
+  }
+
+})();
+</script>
+
+</body>
+</html>
