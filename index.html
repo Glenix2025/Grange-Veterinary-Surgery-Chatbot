@@ -395,8 +395,6 @@
     paymentMethods: null,
     // TODO(Glenda): confirm whether Grange Vet runs its own boarding facility and rates.
     boardingOffered: null,
-    // TODO(Glenda): confirmed service pricing once Grange Vet supplies a price list.
-    pricingPublished: null,
     // TODO(Glenda): confirm which pet insurers Grange Vet works with and whether they offer direct claims.
     insuranceInfo: null
   };
@@ -555,20 +553,13 @@
     {
       id: "services",
       triggers: ["services","what do you offer","what do you do","treatments"],
-      answer: () => `We offer health checks, vaccinations, flea/tick/worm control, microchipping, dentistry, digital x-ray, in-house pathology, desexing, orthopaedic/soft tissue/ophthalmic/dental surgery, grooming, nail clipping, behavioural and nutritional advice, and house calls.`,
-      suggestions: ["Do you do microchipping?", "Do you offer boarding?"]
+      answer: () => `We offer a full range of care: health checks, cat and dog vaccination, flea, tick, worm and mite control, microchipping, dentistry and dental surgery, digital x-ray, in-house pathology, pet insurance advice, desexing, orthopaedic, soft tissue and ophthalmic surgery, emergency procedures, grooming and hydrobath, nail clipping, behavioural advice, heartworm prevention, nutritional advice, general dog and cat care guidance, specialist referrals, and house calls. Ask me about any of these and I can give you more detail.`,
+      suggestions: ["Do you do microchipping?", "Do you do dental cleaning?"]
     },
     {
       id: "microchipping",
       triggers: ["microchip","microchipping","chip my pet"],
       answer: () => `Yes, we're an AVA-accredited microchip centre and register chips with Global Micro within 24 hours. It can usually be done during a normal consult, so just mention it when you book.`
-    },
-    {
-      id: "pricing",
-      triggers: ["how much","cost","price","pricing","fee","cat consult","dog consult","cat checkup","dog checkup","how much for a"],
-      answer: () => _CONFIG.pricingPublished
-        ? _CONFIG.pricingPublished
-        : `Our pricing isn't published online, so please call us on ${_CONFIG.phone} and our team can give you a quote for your pet.`
     },
     {
       id: "boarding",
@@ -616,8 +607,73 @@
     },
     {
       id: "dentistry",
-      triggers: ["dental","dentistry","teeth cleaning","bad breath","tartar"],
-      answer: () => `We offer professional dental cleaning under general anaesthesia, with a physical exam and pre-anaesthetic blood/urine tests where needed. Watch for tartar, inflamed gums, bad breath or appetite changes, since those are good reasons to book a dental check.`
+      triggers: ["dental","dentistry","teeth cleaning","bad breath","tartar","tooth extraction","gum surgery"],
+      answer: () => `We offer professional dental cleaning under general anaesthesia, including a full exam and charting, ultrasonic scaling and polishing, and tooth extractions with gum surgery where needed. Watch for tartar, inflamed gums, bad breath or appetite changes, since those are good reasons to book a dental check. Most pets go home the same day.`
+    },
+    {
+      id: "orthopaedic",
+      triggers: ["orthopaedic","orthopedic","cruciate","ligament","fracture","broken bone","amputation"],
+      answer: () => `Yes, we perform orthopaedic surgery including cranial cruciate ligament repair, fracture repair, and amputations in our fully equipped surgical suite. More complex cases, like spinal surgery, are referred out to specialist surgeons.`
+    },
+    {
+      id: "soft_tissue",
+      triggers: ["soft tissue","laparotomy","caesarean","c-section","lump removal","remove a lump","remove the lump","wound closure","foreign body"],
+      answer: () => `We offer soft tissue surgery covering desexing, exploratory laparotomies, caesarean sections, lump removals, wound closure, and removing swallowed foreign objects. If your pet has a lump, we usually recommend a biopsy first to check whether it's benign before deciding on removal.`
+    },
+    {
+      id: "ophthalmic",
+      triggers: ["eye surgery","ophthalmic","ophthalmology","cherry eye","entropion","ectropion","corneal ulcer","glaucoma","enucleation"],
+      answer: () => `Yes, we provide eye care and surgery, including cherry eye correction, entropion and ectropion eyelid surgery, corneal ulcer repair, eyelid tumour removal, and enucleation for severely damaged eyes. We also diagnose conditions like glaucoma using an ophthalmoscope and tonometer.`
+    },
+    {
+      id: "mites",
+      triggers: ["mite","mites","mange","demodex","sarcoptes","scabies","ear mites"],
+      answer: () => `Yes, we diagnose and treat all common mites and mange, including demodex, sarcoptes and ear mites, usually with a microscopic skin or ear scraping to confirm the type before treating. Call us on ${_CONFIG.phone} to discuss protecting your pet against mites.`
+    },
+    {
+      id: "grooming",
+      triggers: ["grooming","groom","wash my dog","wash my cat","hydrobath","bath my pet"],
+      answer: () => `We offer grooming and washing, and we're set up for difficult or fractious pets who need sedation or a general anaesthetic that a regular groomer can't provide. We also run a drop-in hydrobath on Saturday mornings from 9:00 AM to 11:30 AM, no appointment needed.`
+    },
+    {
+      id: "nail_clipping",
+      triggers: ["nail clip","nail trim","cut nails","overgrown nails","nails clipped","nails trimmed","clip nails","trim nails","claws clipped","claws trimmed","nails"],
+      answer: () => `Yes, we offer nail clipping for dogs and cats of any size, and we're happy to show you how to trim your pet's nails yourself if you'd prefer to do it at home.`
+    },
+    {
+      id: "behavioural",
+      triggers: ["behavioural","behavioral","aggression","aggressive","separation anxiety","barking","biting","anxious pet","behaviour problem"],
+      answer: () => `We offer behavioural advice and consultations. Since behaviour problems can have medical or behavioural causes (or both), we usually start with a full history and physical exam, sometimes with blood or urine tests, before recommending training, home visits or medication as needed.`
+    },
+    {
+      id: "heartworm",
+      triggers: ["heartworm"],
+      answer: () => `Yes, we offer heartworm prevention, which is easy to keep on top of as part of your pet's routine care. If your pet hasn't been on prevention before, we'll usually recommend a heartworm test first. Call us on ${_CONFIG.phone} to discuss the best program for your pet.`
+    },
+    {
+      id: "nutrition",
+      triggers: ["nutrition","what should i feed","food advice","dog food advice","cat food advice","diet advice"],
+      answer: () => `We offer nutritional advice tailored to your pet's life stage, from higher-energy puppy and kitten diets through to fat-restricted, joint-supporting diets for seniors. We recommend a premium diet from a reputable brand and steer clear of human food. Call us on ${_CONFIG.phone} for a personalised plan.`
+    },
+    {
+      id: "dog_care",
+      triggers: ["dog care","new puppy care","puppy advice","owning a dog","new puppy","got a puppy","puppy"],
+      answer: () => `We're happy to guide new dog owners through housing, exercise and socialisation, nutrition, dental homecare, grooming, and parasite control. We also recommend annual health checks, routine vaccination, and pet insurance for new dogs. Ask us anything specific and we'll help.`
+    },
+    {
+      id: "cat_care",
+      triggers: ["cat care","new kitten care","kitten advice","owning a cat","new kitten","got a kitten","adopted a kitten","kitten"],
+      answer: () => `We're happy to guide new cat owners through litter training, safe indoor and outdoor enrichment, grooming, and nutrition, plus what to expect from annual health checks, vaccination and worming. Ask us anything specific and we'll help.`
+    },
+    {
+      id: "flea_tick",
+      triggers: ["flea","fleas","tick","ticks","paralysis tick","flea allergy","flea treatment","tick treatment"],
+      answer: () => `We offer year-round flea and tick control. Fleas are a year-round risk (only 5% of an infestation is visible on your pet), and paralysis ticks are a serious, sometimes fatal, risk along the Australian east coast, so daily tick searches and vet-recommended products matter. Please always ask us before using a flea product on a cat, since some dog products are toxic to cats.`
+    },
+    {
+      id: "intestinal_worms",
+      triggers: ["worms","worming","deworm","roundworm","tapeworm","whipworm","hookworm","intestinal worm"],
+      answer: () => `We offer year-round worming for roundworm, tapeworm, whipworm and hookworm. Regular deworming matters most for puppies and kittens, and some worms can also spread to people, so we recommend an ongoing program rather than a one-off treatment. Call us on ${_CONFIG.phone} to set one up for your pet.`
     },
     {
       id: "diagnostics",
@@ -750,7 +806,7 @@
   // ---------- Teaser ----------
   function repositionTeaser() {
     if (cardOpen) {
-      teaser.style.bottom = (card.offsetHeight + 12 + 76) + "px";
+      teaser.style.bottom = (card.offsetHeight + 12) + "px";
     } else {
       teaser.style.bottom = "76px";
     }
@@ -792,7 +848,11 @@
     cardOpen = true;
     card.style.display = "flex";
     launcher.style.display = "none";
-    repositionTeaser();
+    // The teaser has done its job once the visitor opens the widget, so hide
+    // it now rather than leaving it floating above the open card. It stays
+    // hidden even if the card is closed again.
+    teaserDismissed = true;
+    teaser.style.display = "none";
   }
   function closeCard() {
     cardOpen = false;
@@ -816,7 +876,6 @@
   // ---------- Quick-intent chips ----------
   const QUICK_INTENTS = [
     { label: "🕒 Hours", question: "What are your opening hours?" },
-    { label: "💰 Pricing", question: "How much does a consult cost?" },
     { label: "📍 Location", question: "Where are you located?" },
     { label: "📅 Booking", question: "How do I book an appointment?" }
   ];
@@ -1010,7 +1069,7 @@
   window.GRANGEVET_TEST = {
     runAll: function() {
       const cases = [
-        { name: "species pricing", input: "how much for a cat consult", expectIntentId: "pricing" },
+        { name: "pricing question falls to fallback", input: "how much for a cat consult", expectIntentId: "fallback", expectContains: _CONFIG.phone },
         { name: "weekend hours", input: "are you open saturday", expectIntentId: "hours", expectContains: "Saturday" },
         { name: "named-toxin emergency", input: "my dog ate chocolate", expectIntentId: "emergency", expectContains: "call" },
         { name: "multi-symptom emergency combo", input: "vomiting and won't wake up", expectIntentId: "emergency" },
