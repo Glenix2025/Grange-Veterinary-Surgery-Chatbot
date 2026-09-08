@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Grange Veterinary Surgery — Live Assistant Widget</title>
+<title>Grange Veterinary Surgery, Live Assistant Widget</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   #gv-widget-root, #gv-widget-root * { box-sizing: border-box; }
@@ -337,13 +337,13 @@
           <ellipse cx="52" cy="27" rx="6" ry="8" fill="#ffffff" transform="rotate(20 52 27)"/>
         </svg>
       </div>
-      <div id="gv-menu-greeting">Hi! I'm Grange Vet Surgery's assistant — how can I help?</div>
+      <div id="gv-menu-greeting">Hi! I'm Grange Vet Surgery's assistant, how can I help?</div>
       <div id="gv-menu-status-badge">Checking hours…</div>
       <div id="gv-menu-sub" id="gv-menu-sub-text"></div>
 
       <a id="gv-menu-emergency" class="gv-btn gv-btn-emergency" href="#">📞 Emergency? Call now</a>
       <button id="gv-start-chat" class="gv-btn gv-btn-primary">💬 Start a new chat</button>
-      <a id="gv-book-online" class="gv-btn gv-btn-secondary" href="#">📅 Book Online (Call Us)</a>
+      <a id="gv-book-online" class="gv-btn gv-btn-secondary" href="#">📅 Call to Book</a>
 
       <div id="gv-chips"></div>
     </div>
@@ -364,7 +364,7 @@
   "use strict";
 
   // ============================================================
-  // CONFIG — fill in real values as they become available.
+  // CONFIG, fill in real values as they become available.
   // Each TODO field auto-upgrades the relevant answer once filled.
   // ============================================================
   const _CONFIG = {
@@ -387,16 +387,18 @@
       5: { open: 8, close: 17 },
       6: { open: 8, close: 12 }
     },
-    // TODO(Glenda): confirmed public-holiday hours — leave null until published.
+    // TODO(Glenda): confirmed public holiday hours, leave null until published.
     publicHolidayHours: null,
     // TODO(Glenda): real online booking URL once Grange Vet sets one up.
     bookingUrl: null,
     // TODO(Glenda): confirm accepted payment methods (cash/card/Afterpay/Zip/VetPay etc).
     paymentMethods: null,
-    // TODO(Glenda): confirm whether Grange Vet runs its own boarding facility + rates.
+    // TODO(Glenda): confirm whether Grange Vet runs its own boarding facility and rates.
     boardingOffered: null,
     // TODO(Glenda): confirmed service pricing once Grange Vet supplies a price list.
-    pricingPublished: null
+    pricingPublished: null,
+    // TODO(Glenda): confirm which pet insurers Grange Vet works with and whether they offer direct claims.
+    insuranceInfo: null
   };
 
   function mapsUrl(address) {
@@ -436,29 +438,23 @@
       open = nowMins >= openMins && nowMins < closeMins;
     }
     const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-    let subLine;
-    if (open) {
-      subLine = "Open now · closes " + formatHour(todayHours.close);
-    } else {
-      // find next open day
-      let nextDay = now.weekday, hoursAhead = 0, found = null;
+    let nextOpen = null;
+    if (!open) {
+      // find next open day: sameDay if it opens later today, isTomorrow if it's the very next
+      // calendar day, otherwise name the weekday.
       for (let i = 0; i < 8; i++) {
         const d = (now.weekday + i) % 7;
         const h = _CONFIG.weeklyHours[d];
         if (h) {
-          if (i === 0 && nowMins < h.open * 60) { found = { day: d, sameDay: true, h }; break; }
-          if (i > 0) { found = { day: d, sameDay: false, h }; break; }
+          if (i === 0 && nowMins < h.open * 60) { nextOpen = { sameDay: true, isTomorrow: false, dayName: dayNames[d], hour: h.open }; break; }
+          if (i > 0) { nextOpen = { sameDay: false, isTomorrow: i === 1, dayName: dayNames[d], hour: h.open }; break; }
         }
-      }
-      if (found) {
-        subLine = "Currently closed · " + (found.sameDay ? "opens today " : "opens " + dayNames[found.day] + " ") + formatHour(found.h.open);
-      } else {
-        subLine = "Currently closed";
       }
     }
     return {
       open: open,
-      subLine: subLine,
+      todayCloseHour: open ? todayHours.close : null,
+      nextOpen: nextOpen,
       emergencyLabel: open ? "📞 Emergency? Call now" : "📞 After-hours emergency",
       emergencyNumber: open ? _CONFIG.phone : _CONFIG.afterHoursPhone
     };
@@ -467,7 +463,26 @@
   function formatHour(h) {
     const period = h >= 12 ? "PM" : "AM";
     let hr = h % 12; if (hr === 0) hr = 12;
-    return hr + (period === "AM" && h < 10 ? ":00" : ":00") + period;
+    return hr + ":00 " + period;
+  }
+
+  // Builds one clean, standalone sentence describing the open/closed state.
+  // Used by both the header sub-line and the hours KB answer, so neither one
+  // is built by pasting the other's text into a new sentence.
+  function statusSentence(s, style) {
+    if (s.open) {
+      return style === "header"
+        ? "Open now, closes " + formatHour(s.todayCloseHour) + " today"
+        : "We're open now and close at " + formatHour(s.todayCloseHour) + " today.";
+    }
+    if (s.nextOpen) {
+      const when = s.nextOpen.sameDay ? "later today"
+        : (s.nextOpen.isTomorrow ? "tomorrow" : s.nextOpen.dayName);
+      return style === "header"
+        ? "Closed now, opens " + when + " at " + formatHour(s.nextOpen.hour)
+        : "We're closed right now and reopen " + when + " at " + formatHour(s.nextOpen.hour) + ".";
+    }
+    return style === "header" ? "Closed now" : "We're closed right now.";
   }
 
   // ============================================================
@@ -491,22 +506,26 @@
       id: "contact",
       triggers: ["contact","phone number","your number","email address","how do i reach you","get in touch","email"],
       answer: () => `You can reach us on ${_CONFIG.phone} (or ${_CONFIG.phoneAlt}), by email at ${_CONFIG.email}, or visit us at ${_CONFIG.address}.`,
-      links: () => [{ label: "Get Directions", href: mapsUrl(_CONFIG.address) }]
+      links: () => [
+        { label: "Call " + _CONFIG.phone, href: telHref(_CONFIG.phone) },
+        { label: "Call " + _CONFIG.phoneAlt, href: telHref(_CONFIG.phoneAlt) },
+        { label: "Get Directions", href: mapsUrl(_CONFIG.address) }
+      ]
     },
     {
       id: "hours",
       triggers: ["hours","open","opening times","what time","when are you open","close","closing time","weekend"],
       answer: () => {
         const s = getStatus();
-        return `Our hours are Monday–Friday 8:00 AM–5:00 PM, Saturday 8:00 AM–12:00 PM, and we're closed Sundays. Right now we're ${s.open ? "open" : "closed"} — ${s.subLine.toLowerCase()}.` +
-          (_CONFIG.publicHolidayHours ? ` Public holidays: ${_CONFIG.publicHolidayHours}.` : ` We haven't published public holiday hours yet — please call ${_CONFIG.phone} to confirm.`);
+        return `Our hours are Monday to Friday 8:00 AM to 5:00 PM, Saturday 8:00 AM to 12:00 PM, and we're closed Sundays. ${statusSentence(s, "answer")}` +
+          (_CONFIG.publicHolidayHours ? ` Public holidays: ${_CONFIG.publicHolidayHours}.` : ` We haven't published public holiday hours yet, so please call ${_CONFIG.phone} to confirm.`);
       },
       suggestions: ["How do I book an appointment?", "Where are you located?"]
     },
     {
       id: "location",
       triggers: ["location","address","where are you","directions","find you","parking"],
-      answer: () => `We're at ${_CONFIG.address}, central to Brisbane's northside — serving Wilston, Windsor, Newmarket, Alderley and Stafford. Parking details aren't listed on our site, so please call ${_CONFIG.phone} to check on the day.`,
+      answer: () => `We're at ${_CONFIG.address}, central to Brisbane's northside, serving Wilston, Windsor, Newmarket, Alderley and Stafford. Parking details aren't listed on our site, so please call ${_CONFIG.phone} to check on the day.`,
       links: () => [{ label: "Get Directions", href: mapsUrl(_CONFIG.address) }]
     },
     {
@@ -514,22 +533,24 @@
       triggers: ["payment","pay","credit card","afterpay","zip pay","vetpay","how much can i pay","payment plan","payment methods"],
       answer: () => _CONFIG.paymentMethods
         ? `We accept ${_CONFIG.paymentMethods}.`
-        : `We haven't published our accepted payment methods yet — please call us on ${_CONFIG.phone} to confirm what works best for you.`
+        : `We haven't published our accepted payment methods yet, so please call us on ${_CONFIG.phone} to confirm what works best for you.`
     },
     {
       id: "insurance",
       triggers: ["insurance","pet insurance","claim","insured","policy"],
-      answer: () => `Yes — we accept claims from all pet insurers and can give general advice on choosing a policy, including excess, coverage limits and pre-existing condition exclusions. Call us on ${_CONFIG.phone} for details on your specific policy.`
+      answer: () => _CONFIG.insuranceInfo
+        ? _CONFIG.insuranceInfo
+        : `We haven't confirmed which pet insurers we work with or whether we offer direct claims, so please call us on ${_CONFIG.phone} and our team can talk through your specific policy.`
     },
     {
       id: "doctors",
       triggers: ["doctors","vets","veterinarian","who are the doctors","how many vets","meet the team","dr paul","dr leanne","dr tina"],
-      answer: () => `We have three vets: Dr Paul MacGinley (our founder — dentistry, surgery and feline medicine), Dr Leanne Litzow (reproduction medicine), and Dr Tina Miller (endocrine disorders and soft tissue surgery). Between us we've been caring for Brisbane northside pets since 1987.`
+      answer: () => `We have three vets: Dr Paul MacGinley, our founder, with a focus on dentistry, surgery and feline medicine, Dr Leanne Litzow, who focuses on reproduction medicine, and Dr Tina Miller, who focuses on endocrine disorders and soft tissue surgery. Between us we've been caring for Brisbane northside pets since 1987.`
     },
     {
       id: "nurses",
       triggers: ["nurses","nursing team","support staff","practice manager","staff"],
-      answer: () => `Our nursing team includes Kathy Edwards (Practice Manager, 25+ years' experience), Lisa Swadling and Zoe Radford — all Certified Veterinary Nurses.`
+      answer: () => `Our nursing team includes Kathy Edwards, our Practice Manager with 25+ years' experience, along with Lisa Swadling and Zoe Radford, all Certified Veterinary Nurses.`
     },
     {
       id: "services",
@@ -540,26 +561,26 @@
     {
       id: "microchipping",
       triggers: ["microchip","microchipping","chip my pet"],
-      answer: () => `Yes — we're an AVA-accredited microchip centre and register chips with Global Micro within 24 hours. It can usually be done during a normal consult, so just mention it when you book.`
+      answer: () => `Yes, we're an AVA-accredited microchip centre and register chips with Global Micro within 24 hours. It can usually be done during a normal consult, so just mention it when you book.`
     },
     {
       id: "pricing",
       triggers: ["how much","cost","price","pricing","fee","cat consult","dog consult","cat checkup","dog checkup","how much for a"],
       answer: () => _CONFIG.pricingPublished
         ? _CONFIG.pricingPublished
-        : `Our pricing isn't published online — please call us on ${_CONFIG.phone} and our team can give you a quote for your pet.`
+        : `Our pricing isn't published online, so please call us on ${_CONFIG.phone} and our team can give you a quote for your pet.`
     },
     {
       id: "boarding",
       triggers: ["boarding","board my dog","board my cat","kennel","cattery"],
       answer: () => _CONFIG.boardingOffered
         ? _CONFIG.boardingOffered
-        : `We're not able to confirm current boarding availability from our website — please call us on ${_CONFIG.phone} and we'll let you know what's available.`
+        : `We're not able to confirm current boarding availability from our website, so please call us on ${_CONFIG.phone} and we'll let you know what's available.`
     },
     {
       id: "desexing_prep",
       triggers: ["desex","desexing","spay","neuter","castrate","fasting for surgery","surgery prep"],
-      answer: () => `Desexing is our most common surgery — most pets go home the same evening. Beforehand: a normal evening meal the night before is fine (just don't leave food out overnight), and water is okay until 8:00 AM on the day of surgery. We recommend desexing between 4–6 months old, though it's never too late.`
+      answer: () => `Desexing is our most common surgery, and most pets go home the same evening. Beforehand, a normal evening meal the night before is fine (just don't leave food out overnight), and water is okay until 8:00 AM on the day of surgery. We recommend desexing between 4 to 6 months old, though it's never too late.`
     },
     {
       id: "radiography_prep",
@@ -574,8 +595,14 @@
     {
       id: "booking",
       triggers: ["book","booking","appointment","schedule a visit","make an appointment","walk in","walk-in"],
-      answer: () => `Please call us on ${_CONFIG.phone} (or ${_CONFIG.phoneAlt}) to book an appointment — we don't have online booking yet, but you can pre-register your pet's details on our website so everything's ready when you visit.`,
-      links: () => _CONFIG.bookingUrl ? [{ label: "Book Online", href: _CONFIG.bookingUrl }] : [{ label: "Call to Book", href: telHref(_CONFIG.phone) }]
+      answer: () => `Please call us on ${_CONFIG.phone} (or ${_CONFIG.phoneAlt}) to book an appointment. We don't have online booking yet, but you can pre-register your pet's details on our website so everything's ready when you visit.`,
+      links: () => {
+        const links = [];
+        if (_CONFIG.bookingUrl) links.push({ label: "Book Online", href: _CONFIG.bookingUrl });
+        links.push({ label: "Call to Book", href: telHref(_CONFIG.phone) });
+        links.push({ label: "Call " + _CONFIG.phoneAlt, href: telHref(_CONFIG.phoneAlt) });
+        return links;
+      }
     },
     {
       id: "newclient",
@@ -590,22 +617,22 @@
     {
       id: "dentistry",
       triggers: ["dental","dentistry","teeth cleaning","bad breath","tartar"],
-      answer: () => `We offer professional dental cleaning under general anaesthesia, with a physical exam and pre-anaesthetic blood/urine tests where needed. Watch for tartar, inflamed gums, bad breath or appetite changes — those are good reasons to book a dental check.`
+      answer: () => `We offer professional dental cleaning under general anaesthesia, with a physical exam and pre-anaesthetic blood/urine tests where needed. Watch for tartar, inflamed gums, bad breath or appetite changes, since those are good reasons to book a dental check.`
     },
     {
       id: "diagnostics",
       triggers: ["blood test","blood work","lab test","laboratory","pathology","urinalysis","biopsy"],
-      answer: () => `Yes — we run an in-house lab for blood chemistry, complete blood counts, clotting times, urinalysis, faecal tests and biopsy examination, with same-day results for most in-house tests. We also partner with QML and IDEXX for more advanced testing.`
+      answer: () => `Yes, we run an in-house lab for blood chemistry, complete blood counts, clotting times, urinalysis, faecal tests and biopsy examination, with same-day results for most in-house tests. We also partner with QML and IDEXX for more advanced testing.`
     },
     {
       id: "differentiator",
       triggers: ["why choose","what makes you different","how long have you been","how long established","family owned"],
-      answer: () => `We're a family-owned practice, still run by our founding vets since 1987 — nearly 40 years caring for Brisbane northside pets. We also run our own in-house lab for same-day results, partnered with QML and IDEXX for advanced testing.`
+      answer: () => `We're a family-owned practice, still run by our founding vets since 1987, nearly 40 years caring for Brisbane northside pets. We also run our own in-house lab for same-day results, partnered with QML and IDEXX for advanced testing.`
     },
     {
       id: "cancellation",
       triggers: ["cancel","reschedule","change my appointment"],
-      answer: () => `We haven't published a formal cancellation policy — please call us on ${_CONFIG.phone} as soon as you can if you need to cancel or reschedule.`
+      answer: () => `We haven't published a formal cancellation policy, so please call us on ${_CONFIG.phone} as soon as you can if you need to cancel or reschedule.`
     },
     {
       id: "symptom",
@@ -615,12 +642,12 @@
         "coughing","cough","sneezing","discharge","swelling","lump","not himself","not herself",
         "unwell","not well"
       ],
-      answer: () => `I'm not able to diagnose symptoms over chat, but that's worth a vet's look. Please call us on ${_CONFIG.phone} to book a check-up. If things get worse quickly — trouble breathing, collapse, or severe pain — please treat it as an emergency and call us right away.`
+      answer: () => `I'm not able to diagnose symptoms over chat, but that's worth a vet's look. Please call us on ${_CONFIG.phone} to book a check-up. If things get worse quickly, such as trouble breathing, collapse, or severe pain, please treat it as an emergency and call us right away.`
     },
     {
       id: "fallback",
       triggers: [],
-      answer: () => `I'm not sure about that one — please call us on ${_CONFIG.phone} and our team can help directly.`,
+      answer: () => `I'm not sure about that one. Please call us on ${_CONFIG.phone} and our team can help directly.`,
       suggestions: ["Hours", "Location", "How do I book?"]
     }
   ];
@@ -632,7 +659,7 @@
       const s = getStatus();
       return {
         id: "emergency",
-        text: `This sounds like it could be an emergency. Please call us right away on ${s.emergencyNumber} — don't wait for a chat reply. ${s.open ? "We're open now and ready to help." : "This is our after-hours emergency line."}`,
+        text: `This sounds like it could be an emergency. Please call us right away on ${s.emergencyNumber}. Don't wait for a chat reply. ${s.open ? "We're open now and ready to help." : "This is our after-hours emergency line."}`,
         links: [{ label: "Call " + s.emergencyNumber, href: telHref(s.emergencyNumber) }]
       };
     }
@@ -695,7 +722,7 @@
       bookOnlineBtn.target = "_blank";
       bookOnlineBtn.rel = "noopener noreferrer";
     } else {
-      bookOnlineBtn.textContent = "📅 Book Online (Call Us)";
+      bookOnlineBtn.textContent = "📅 Call to Book";
       bookOnlineBtn.href = telHref(_CONFIG.phone);
       bookOnlineBtn.removeAttribute("target");
     }
@@ -705,13 +732,13 @@
   function refreshStatus() {
     const s = getStatus();
     statusDot.className = s.open ? "gv-open" : "";
-    headerSub.textContent = s.subLine;
+    headerSub.textContent = statusSentence(s, "header");
     menuStatusBadge.textContent = s.open ? "🟢 Open now" : "⚪ Closed";
     menuStatusBadge.className = s.open ? "gv-open" : "";
     if (menuSub) {
       menuSub.textContent = s.open
         ? "We usually reply quickly during business hours."
-        : "We're closed right now — for anything urgent, use the emergency button below.";
+        : "We're closed right now. For anything urgent, use the emergency button below.";
     }
     headerEmergency.textContent = s.open ? "📞 Emergency" : "📞 After-hours";
     headerEmergency.href = telHref(s.emergencyNumber);
@@ -888,37 +915,72 @@
     }, 500);
   }
 
-  // ---------- Input handling (with intake state machine) ----------
+  // Returns true when a message during the name/pet-name intake steps looks
+  // like a real question or a description of a problem rather than a
+  // plausible short name, for example "What are your hours?" or "how much
+  // does a consult cost". Used to skip straight to matchMessage instead of
+  // blocking on the intake questions.
+  function looksLikeRealQuestion(text) {
+    const trimmed = text.trim();
+    if (!trimmed) return false;
+    if (trimmed.includes("?")) return true;
+    if (trimmed.length > 40) return true;
+    const lower = trimmed.toLowerCase();
+    return KB.some(entry => entry.id !== "fallback" && entry.triggers.some(t => lower.includes(t)));
+  }
+
+  // ---------- Input handling (with optional intake state machine) ----------
   function handleUserInput(text) {
-    if (!text.trim()) return;
+    const trimmed = text.trim();
+    if (!trimmed) return;
     addUserMessage(text);
 
+    // The emergency check runs first, before any onboarding logic, on every
+    // single message, including a brand new chat's very first message. This
+    // guarantees an emergency phrase never gets captured as ownerName or
+    // petName and always gets the emergency reply immediately.
+    if (isEmergency(trimmed.toLowerCase())) {
+      onboardingStage = "done";
+      respondTo(text);
+      return;
+    }
+
     if (onboardingStage === "name") {
-      ownerName = text.trim();
+      if (looksLikeRealQuestion(trimmed)) {
+        onboardingStage = "done";
+        respondTo(text);
+        return;
+      }
+      ownerName = trimmed;
       onboardingStage = "petname";
       const typingEl = showTyping();
       setTimeout(() => {
         typingEl.remove();
-        addBotMessage(`Lovely to meet you, ${ownerName}! What's your pet's name?`);
+        addBotMessage(`Lovely to meet you, ${ownerName}. What is your pet's name?`);
       }, 500);
       return;
     }
     if (onboardingStage === "petname") {
-      petName = text.trim();
+      if (looksLikeRealQuestion(trimmed)) {
+        onboardingStage = "done";
+        respondTo(text);
+        return;
+      }
+      petName = trimmed;
       onboardingStage = "condition";
       const typingEl = showTyping();
       setTimeout(() => {
         typingEl.remove();
-        addBotMessage(`Great — and what's going on with ${petName} today? You can describe what's happening, or just ask me about booking, hours, services and more.`);
+        addBotMessage(`Great, and what is going on with ${petName} today? You can describe what's happening, or just ask me about booking, hours, services and more.`);
       }, 500);
       return;
     }
     if (onboardingStage === "condition") {
       onboardingStage = "done";
-      respondTo(text, `Thanks, ${ownerName} — noted for ${petName}.`);
+      respondTo(text, `Thanks, ${ownerName}, noted for ${petName}.`);
       return;
     }
-    // onboardingStage === "done" (or chip-initiated) — normal free-form matching
+    // onboardingStage === "done" (or chip-initiated) - normal free-form matching
     respondTo(text);
   }
 
@@ -943,7 +1005,7 @@
   showMenu();
 
   // ============================================================
-  // Scripted-transcript test harness (QA only — opt-in via ?grangevettest=1)
+  // Scripted-transcript test harness (QA only, opt-in via ?grangevettest=1)
   // ============================================================
   window.GRANGEVET_TEST = {
     runAll: function() {
@@ -968,7 +1030,7 @@
         if (c.expectNotContains && result.text.includes(c.expectNotContains)) { ok = false; reasons.push(`should not contain "${c.expectNotContains}"`); }
         if (c.expectCalmOpening && /^(please call|call us right away|this sounds like an emergency)/i.test(result.text)) { ok = false; reasons.push("should open calmly, not with urgent emergency framing"); }
         if (ok) { pass++; console.log(`PASS: ${c.name}`); }
-        else { fail++; console.log(`FAIL: ${c.name} — ${reasons.join("; ")} (got: "${result.text}")`); }
+        else { fail++; console.log(`FAIL: ${c.name}, ${reasons.join("; ")} (got: "${result.text}")`); }
       });
       const statusCheck = getStatus();
       const statusOk = typeof statusCheck.open === "boolean" && !!statusCheck.emergencyLabel && !!statusCheck.emergencyNumber;
